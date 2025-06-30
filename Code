@@ -1,0 +1,236 @@
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.impute import SimpleImputer
+
+# Set visualization style
+sns.set(style="whitegrid")
+plt.style.use('seaborn')
+
+# Load the dataset
+url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
+titanic = pd.read_csv(url)
+
+# Display basic information
+print("="*80)
+print("DATASET INFORMATION")
+print("="*80)
+print(titanic.info())
+print("\nFirst 5 rows:")
+print(titanic.head())
+
+# 1. Missing Value Analysis
+print("\n" + "="*80)
+print("MISSING VALUE ANALYSIS")
+print("="*80)
+missing_values = titanic.isnull().sum()
+missing_percent = (titanic.isnull().sum() / len(titanic)) * 100
+missing_data = pd.DataFrame({'Missing Values': missing_values, 'Percentage': missing_percent})
+print(missing_data.sort_values(by='Percentage', ascending=False))
+
+# Visualize missing values
+plt.figure(figsize=(12, 6))
+sns.heatmap(titanic.isnull(), yticklabels=False, cbar=False, cmap='viridis')
+plt.title('Missing Values Heatmap', fontsize=14, pad=20)
+plt.tight_layout()
+plt.show()
+
+# 2. Data Cleaning and Feature Engineering
+# Impute missing ages based on passenger class
+def impute_age(cols):
+    age = cols[0]
+    pclass = cols[1]
+    
+    if pd.isnull(age):
+        if pclass == 1:
+            return 37
+        elif pclass == 2:
+            return 29
+        else:
+            return 24
+    else:
+        return age
+
+titanic['Age'] = titanic[['Age', 'Pclass']].apply(impute_age, axis=1)
+
+# Fill missing embarked with mode
+titanic['Embarked'].fillna(titanic['Embarked'].mode()[0], inplace=True)
+
+# Create new features
+titanic['FamilySize'] = titanic['SibSp'] + titanic['Parch']
+titanic['IsAlone'] = titanic['FamilySize'].apply(lambda x: 1 if x == 0 else 0)
+titanic['Title'] = titanic['Name'].str.extract(' ([A-Za-z]+)\.', expand=False)
+titanic['Title'] = titanic['Title'].replace(['Lady', 'Countess','Capt', 'Col','Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
+titanic['Title'] = titanic['Title'].replace('Mlle', 'Miss')
+titanic['Title'] = titanic['Title'].replace('Ms', 'Miss')
+titanic['Title'] = titanic['Title'].replace('Mme', 'Mrs')
+
+# Create age bins
+titanic['AgeGroup'] = pd.cut(titanic['Age'], bins=[0, 12, 18, 30, 50, 80], labels=['Child', 'Teen', 'Young Adult', 'Adult', 'Senior'])
+
+# 3. Data Visualization
+# Set up the figure grid
+plt.figure(figsize=(18, 20))
+
+# 3.1 Target Variable Distribution
+plt.subplot(4, 3, 1)
+sns.countplot(x='Survived', data=titanic, palette='husl')
+plt.title('Survival Distribution (0 = No, 1 = Yes)')
+plt.xlabel('Survived')
+plt.ylabel('Count')
+
+# 3.2 Passenger Class Distribution
+plt.subplot(4, 3, 2)
+sns.countplot(x='Pclass', data=titanic, palette='Set2')
+plt.title('Passenger Class Distribution')
+plt.xlabel('Class')
+plt.ylabel('Count')
+
+# 3.3 Gender Distribution
+plt.subplot(4, 3, 3)
+sns.countplot(x='Sex', data=titanic, palette='pastel')
+plt.title('Gender Distribution')
+plt.xlabel('Gender')
+plt.ylabel('Count')
+
+# 3.4 Age Distribution
+plt.subplot(4, 3, 4)
+sns.histplot(titanic['Age'], bins=30, kde=True, color='skyblue')
+plt.title('Age Distribution')
+plt.xlabel('Age (Years)')
+plt.ylabel('Frequency')
+
+# 3.5 Fare Distribution
+plt.subplot(4, 3, 5)
+sns.histplot(titanic['Fare'], bins=40, kde=True, color='salmon')
+plt.title('Fare Distribution')
+plt.xlabel('Fare (£)')
+plt.ylabel('Frequency')
+
+# 3.6 Embarkation Port
+plt.subplot(4, 3, 6)
+sns.countplot(x='Embarked', data=titanic, palette='dark')
+plt.title('Port of Embarkation')
+plt.xlabel('Port')
+plt.ylabel('Count')
+
+# 3.7 Family Size
+plt.subplot(4, 3, 7)
+sns.countplot(x='FamilySize', data=titanic, palette='coolwarm')
+plt.title('Family Size Distribution')
+plt.xlabel('Family Size')
+plt.ylabel('Count')
+
+# 3.8 Survival by Class
+plt.subplot(4, 3, 8)
+sns.barplot(x='Pclass', y='Survived', data=titanic, palette='Set2')
+plt.title('Survival Rate by Class')
+plt.xlabel('Class')
+plt.ylabel('Survival Rate')
+
+# 3.9 Survival by Gender
+plt.subplot(4, 3, 9)
+sns.barplot(x='Sex', y='Survived', data=titanic, palette='pastel')
+plt.title('Survival Rate by Gender')
+plt.xlabel('Gender')
+plt.ylabel('Survival Rate')
+
+# 3.10 Survival by Age Group
+plt.subplot(4, 3, 10)
+sns.barplot(x='AgeGroup', y='Survived', data=titanic, palette='husl', order=['Child', 'Teen', 'Young Adult', 'Adult', 'Senior'])
+plt.title('Survival Rate by Age Group')
+plt.xlabel('Age Group')
+plt.ylabel('Survival Rate')
+
+# 3.11 Survival by Family Size
+plt.subplot(4, 3, 11)
+sns.barplot(x='FamilySize', y='Survived', data=titanic, palette='coolwarm')
+plt.title('Survival Rate by Family Size')
+plt.xlabel('Family Size')
+plt.ylabel('Survival Rate')
+
+# 3.12 Survival by Title
+plt.subplot(4, 3, 12)
+sns.barplot(x='Title', y='Survived', data=titanic, palette='dark')
+plt.title('Survival Rate by Title')
+plt.xlabel('Title')
+plt.ylabel('Survival Rate')
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+# 4. Correlation Analysis
+# Select numerical variables for correlation
+numerical_features = ['Survived', 'Pclass', 'Age', 'SibSp', 'Parch', 'Fare', 'FamilySize', 'IsAlone']
+plt.figure(figsize=(12, 8))
+sns.heatmap(titanic[numerical_features].corr(), annot=True, cmap='coolwarm', center=0)
+plt.title('Correlation Matrix of Numerical Features', pad=20)
+plt.tight_layout()
+plt.show()
+
+# 5. Outlier Detection
+# Set up the figure
+plt.figure(figsize=(16, 6))
+
+# Age outliers
+plt.subplot(1, 2, 1)
+sns.boxplot(x=titanic['Age'], palette='Set2')
+plt.title('Age Distribution with Outliers')
+plt.xlabel('Age (Years)')
+
+# Fare outliers
+plt.subplot(1, 2, 2)
+sns.boxplot(x=titanic['Fare'], palette='Set2')
+plt.title('Fare Distribution with Outliers')
+plt.xlabel('Fare (£)')
+
+plt.tight_layout()
+plt.show()
+
+# 6. Multivariate Analysis
+# Survival by Class and Gender
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Pclass', y='Survived', hue='Sex', data=titanic, palette='husl')
+plt.title('Survival Rate by Class and Gender', pad=20)
+plt.xlabel('Passenger Class')
+plt.ylabel('Survival Rate')
+plt.legend(title='Gender')
+plt.show()
+
+# Age distribution by survival and class
+plt.figure(figsize=(12, 6))
+sns.boxplot(x='Pclass', y='Age', hue='Survived', data=titanic, palette='pastel')
+plt.title('Age Distribution by Class and Survival', pad=20)
+plt.xlabel('Passenger Class')
+plt.ylabel('Age (Years)')
+plt.legend(title='Survived')
+plt.show()
+
+# 7. Statistical Summary
+print("\n" + "="*80)
+print("STATISTICAL SUMMARY")
+print("="*80)
+print("\nNumerical Features Summary:")
+print(titanic.describe())
+
+print("\nCategorical Features Summary:")
+print(titanic.describe(include=['O']))
+
+print("\nSurvival Rates by Key Features:")
+print("\nBy Passenger Class:")
+print(titanic.groupby('Pclass')['Survived'].mean())
+
+print("\nBy Gender:")
+print(titanic.groupby('Sex')['Survived'].mean())
+
+print("\nBy Age Group:")
+print(titanic.groupby('AgeGroup')['Survived'].mean())
+
+print("\nBy Family Size:")
+print(titanic.groupby('FamilySize')['Survived'].mean())
+
+print("\nBy Title:")
+print(titanic.groupby('Title')['Survived'].mean())
